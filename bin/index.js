@@ -71,7 +71,7 @@ fs.readFile(options.name, 'utf8', function (err, data) {
           console.log(chalk.grey("unknown: ", url));
         }
       } catch (err) {
-        console.log(chalk.grey("unknown: ", url));
+        console.log(chalk.redBright("bad: ", url));;
       }
     });
   }
