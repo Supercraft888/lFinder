@@ -60,7 +60,7 @@ fs.readFile(options.name, 'utf8', function (err, data) {
     
     urlLinks.forEach(async url => {
       try {
-        const urlIndiv = await fetch(url, {method: "head"});
+        const urlIndiv = await fetch(url, {method: "head", timeout: 1500});
         if (urlIndiv.status === 200) {
           console.log(chalk.greenBright("good: ", url));
         }
@@ -71,7 +71,7 @@ fs.readFile(options.name, 'utf8', function (err, data) {
           console.log(chalk.grey("unknown: ", url));
         }
       } catch (err) {
-        console.log(err)
+        console.log(chalk.grey("unknown: ", url));
       }
     });
   }
