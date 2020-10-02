@@ -48,90 +48,95 @@ const options = yargs
   .usage("Usage: -n <name>")
   .option("n", {
     alias: "name",
-    describe: "enter the full name of the file including file type",
-    type: "string",
+    describe: "enter the full name of the file including file type for one or more file",
+    type: "array",
     demandOption: true,
   })
   .alias("v", "version")
   .version(`${versionBox}`)
   .describe("version", "show version information").argv;
 
-//how to read the file entered in the argument
-fs.readFile(options.name, "utf8", function (err, data) {
-  if (err) {
-    console.log(err);
-  } else {
-    //Goes through entered file and puts each line into an element inside "lineArray"
-    lineArray = data.toString().split("\n");
-    console.log("Number of lines in file is: ", lineArray.length, "\n");
-
-    //goes through "lineArray" and uses the filter method to find lines with http and https in them.
-    //Also removes lines that do NOT have urls in them so that we wont wate time on those using our regex on them.
-    //Then puts the lines with http and https (with all capitals too) in "lineWithURLArray"
-    lineWithURLArray = lineArray.filter(
-      (line) =>
-        line.includes("https:") ||
-        line.includes("http:") ||
-        line.includes("HTTPS:") ||
-        line.includes("HTTP:")
-    );
-    console.log(
-      "The number of lines with URLs in this file: ",
-      lineWithURLArray.length,
-      "\n"
-    );
-
-    console.log("Checking for the number of URL's in this file...\n");
-
-    //goes through the "lineWithURLArray" and finds things that match the regex.  Then puts them into onlyURLArray made at line 21-ish
-    for (let i = 0; i < lineWithURLArray.length; i++) {
-      let res = lineWithURLArray[i].match(regexForURLs);
-      if (res) {
-        onlyURLArray = onlyURLArray.concat(res);
-      }
-    }
-    console.log("The number of URLs in this file: ", onlyURLArray.length, "\n");
-
-    //goes through onlyURLArray and checks for unique URLs and puts them into uniqueURLArray
-    for (i = 0; i < onlyURLArray.length; i++) {
-      if (uniqueURLArray.indexOf(onlyURLArray[i]) === -1) {
-        uniqueURLArray.push(onlyURLArray[i]);
-      }
-    }
-    //a nested forloop that checks for system urls (things that html and pdf files need to open) and removes them
-    for (j = 0; j < systemURLs.length; j++) {
-      for (i = 0; i < uniqueURLArray.length; i++) {
-        if (uniqueURLArray[i] === systemURLs[j]) {
-          uniqueURLArray.splice(i, 1);
+//handling multiple file names in the argument
+for( let i = 0; i < options.name.length; i++){
+  //how to read the file entered in the argument one by one
+  fs.readFile(options.name[i], "utf8", function (err, data) {
+    if (err) {
+      console.log(err);
+    } else {
+      //Goes through entered file and puts each line into an element inside "lineArray"
+      lineArray = data.toString().split("\n");
+      console.log("Number of lines in file is: ", lineArray.length, "\n");
+  
+      //goes through "lineArray" and uses the filter method to find lines with http and https in them.
+      //Also removes lines that do NOT have urls in them so that we wont wate time on those using our regex on them.
+      //Then puts the lines with http and https (with all capitals too) in "lineWithURLArray"
+      lineWithURLArray = lineArray.filter(
+        (line) =>
+          line.includes("https:") ||
+          line.includes("http:") ||
+          line.includes("HTTPS:") ||
+          line.includes("HTTP:")
+      );
+      console.log(
+        "The number of lines with URLs in this file: ",
+        lineWithURLArray.length,
+        "\n"
+      );
+  
+      console.log("Checking for the number of URL's in this file...\n");
+  
+      //goes through the "lineWithURLArray" and finds things that match the regex.  Then puts them into onlyURLArray made at line 21-ish
+      for (let i = 0; i < lineWithURLArray.length; i++) {
+        let res = lineWithURLArray[i].match(regexForURLs);
+        if (res) {
+          onlyURLArray = onlyURLArray.concat(res);
         }
       }
-    }
-    console.log(
-      "The number of UNIQUE URLs in this file: ",
-      uniqueURLArray.length,
-      "\n"
-    );
-
-    uniqueURLArray.forEach(async (url) => {
-      try {
-        const urlIndiv = await fetch(url, { method: "head", timeout: 13000 });
-        if (urlIndiv.status === 200) {
-          console.log(chalk.green("good: ", url));
-        } else if (urlIndiv.status === 400 || urlIndiv.status === 404) {
-          console.log(chalk.redBright("bad: ", url));
-        } else {
-          console.log(chalk.grey("unknown: ", url));
+      console.log("The number of URLs in this file: ", onlyURLArray.length, "\n");
+  
+      //goes through onlyURLArray and checks for unique URLs and puts them into uniqueURLArray
+      for (i = 0; i < onlyURLArray.length; i++) {
+        if (uniqueURLArray.indexOf(onlyURLArray[i]) === -1) {
+          uniqueURLArray.push(onlyURLArray[i]);
         }
-      } catch (err) {
-        console.log(chalk.rgb(210, 0, 0)("bad (other): ", url));
       }
-    });
-  }
-});
+      //a nested forloop that checks for system urls (things that html and pdf files need to open) and removes them
+      for (j = 0; j < systemURLs.length; j++) {
+        for (i = 0; i < uniqueURLArray.length; i++) {
+          if (uniqueURLArray[i] === systemURLs[j]) {
+            uniqueURLArray.splice(i, 1);
+          }
+        }
+      }
+      console.log(
+        "The number of UNIQUE URLs in this file: ",
+        uniqueURLArray.length,
+        "\n"
+      );
+  
+      uniqueURLArray.forEach(async (url) => {
+        try {
+          const urlIndiv = await fetch(url, { method: "head", timeout: 13000 });
+          if (urlIndiv.status === 200) {
+            console.log(chalk.green("good: ", url));
+          } else if (urlIndiv.status === 400 || urlIndiv.status === 404) {
+            console.log(chalk.redBright("bad: ", url));
+          } else {
+            console.log(chalk.grey("unknown: ", url));
+          }
+        } catch (err) {
+          console.log(chalk.rgb(210, 0, 0)("bad (other): ", url));
+        }
+      });
+    }
+  });
+  
+  var greeting = chalk.white.bold("lFinder is now testing: ", `${options.name[i]}!`);
+  
+  const msgBox = boxen(greeting, boxenOptions);
+  
+  //code for displaying the statuses above
+  console.log(msgBox);
+  
 
-var greeting = chalk.white.bold("lFinder is now testing: ", `${options.name}!`);
-
-const msgBox = boxen(greeting, boxenOptions);
-
-//code for displaying the statuses above
-console.log(msgBox);
+}
