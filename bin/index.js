@@ -54,8 +54,13 @@ const options = yargs
     describe: "enter the directory paths",
     type: "array", 
   })
+  .option("i",{
+    alias: "ignore",
+    describe: "enter the ignore file and the check file",
+    type: "array",
+  })
   .check((options)=>{
-    if(options.d || options.n){
+    if(options.d || options.n || options.i){
         handleOptions(options);
         return true;
     }
@@ -90,6 +95,29 @@ const options = yargs
       options.n.forEach(i => {
         processFile(i);
       });
+    }
+    else if(options.i){
+      console.log("Test ignore files");
+      let ignoreFile=options.i[0];
+      let checkFiles=options.i.splice(1);
+      console.log(ignoreFile);
+      console.log(checkFiles);
+      fs.readFile(ignoreFile,(err,data)=>{
+        if(err){
+          console.log(err);
+        }
+        else{
+          let fileData=data.toString();
+          let ignoreUrls=fileData.match(regexForURLs);
+          if(ignoreUrls){
+            checkFiles.forEach(i=>{
+              processIgnoreFile(i,ignoreUrls);
+              //console.log(ignoreUrls);
+            })
+          }
+        }
+      })
+
     }
 
   }
@@ -162,4 +190,81 @@ const options = yargs
 
       }
     })
+  }
+
+  function processIgnoreFile(file,igUrls){
+    fs.readFile(file, "utf8", function(err, data){
+      if(err){
+          console.log(err)
+      }else{
+        lineArray = data.toString().split("\n");
+        console.log("Number of lines in file is: ", lineArray.length, "\n");
+        //goes through "lineArray" and uses the filter method to find lines with http and https in them.
+        //Also removes lines that do NOT have urls in them so that we wont wate time on those using our regex on them.
+        //Then puts the lines with http and https (with all capitals too) in "lineWithURLArray"
+        lineWithURLArray = lineArray.filter(
+          (line) =>
+            line.includes("https:") ||
+            line.includes("http:") ||
+            line.includes("HTTPS:") ||
+            line.includes("HTTP:")
+        );
+        console.log("The number of lines with URLs in this file: ",lineWithURLArray.length,"\n");
+        console.log("Checking for the number of URL's in this file...\n");
+        //goes through the "lineWithURLArray" and finds things that match the regex.  Then puts them into onlyURLArray made at line 21-ish
+        for (let i = 0; i < lineWithURLArray.length; i++) {
+          let res = lineWithURLArray[i].match(regexForURLs);
+          if (res) {
+            onlyURLArray = onlyURLArray.concat(res);
+          }
+        }
+        console.log("The number of URLs in this file: ", onlyURLArray.length, "\n");
+    
+        //goes through onlyURLArray and checks for unique URLs and puts them into uniqueURLArray
+        for (i = 0; i < onlyURLArray.length; i++) {
+          if (uniqueURLArray.indexOf(onlyURLArray[i]) === -1) {
+            uniqueURLArray.push(onlyURLArray[i]);
+          }
+        }
+        //a nested forloop that checks for system urls (things that html and pdf files need to open) and removes them
+        for (j = 0; j < systemURLs.length; j++) {
+          for (i = 0; i < uniqueURLArray.length; i++) {
+            if (uniqueURLArray[i] === systemURLs[j]) {
+              uniqueURLArray.splice(i, 1);
+            }
+          }
+        }
+        console.log(
+          "The number of UNIQUE URLs in this file: ",
+          uniqueURLArray.length,
+          "\n"
+        );
+        uniqueURLArray.forEach(async (url) => {
+          let flag=true;
+          for(let i=0;i<igUrls.length;i++){
+            if(url.startsWith(igUrls[i])){
+              flag=false;
+            }
+          }
+          if(flag){
+            try {
+              const urlIndiv = await fetch(url, { method: "head", timeout: 13000 });
+              if (urlIndiv.status === 200) {
+                console.log(chalk.green("good: ", url));
+              } else if (urlIndiv.status === 400 || urlIndiv.status === 404) {
+                console.log(chalk.redBright("bad: ", url));
+              } else {
+                console.log(chalk.grey("unknown: ", url));
+              }
+            } catch (err) {
+              console.log(chalk.rgb(210, 0, 0)("bad (other): ", url));
+            }
+          }
+        });
+        var greeting = chalk.white.bold("lFinder is now testing: ", `${file}!`);
+        const msgBox = boxen(greeting, boxenOptions);
+        //code for displaying the statuses above
+        console.log(msgBox);
+      }
+    })      
   }
